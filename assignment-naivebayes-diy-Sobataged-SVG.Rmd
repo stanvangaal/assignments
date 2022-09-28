@@ -1,0 +1,113 @@
+---
+title: "Assigment - Naive Bayes DIY"
+author:
+  - name author here - Author
+  - name reviewer here - Reviewer
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+   html_notebook:
+    toc: true
+    toc_depth: 2
+---
+
+```{r}
+library(tidyverse)
+library(tm)
+library(caret)
+library(wordcl0ud)
+library(e1071)
+```
+
+---
+
+Choose a suitable dataset from [this](https://github.com/HAN-M3DM-Data-Mining/assignments/tree/master/datasets) folder and train your own Naive Bayes model. Follow all the steps from the CRISP-DM model.
+
+
+## Data understanding
+```{r}
+rawDF <- NB.fakenews
+summary(rawDF)
+
+## Differentiate real news and fake news in a variable
+Fakenews <- rawDF %>% filter(label == 0)
+News <- rawDF %>% filter(label == 1) 
+
+## visually inspect the data by creating wordclouds for earch variable 
+wordcloud(Fakenews$text, max.words = 20, scale = c(4, 0.8), colors= c("indianred1","indianred2","indianred3","indianred"))
+
+wordcloud(News$text, max.words = 20, scale = c(4, 0.8), colors= c("lightsteelblue1","lightsteelblue2","lightsteelblue3","lightsteelblue"))
+
+```
+
+## Data Preparation
+```{r}
+## create corpus (collections of documents containing text)
+rawCorpus <- Corpus(VectorSource(rawDF$text))
+inspect(rawCorpus[1:3])
+
+##cleaning up: remove numbers
+cleanCorpus <- rawCorpus %>% tm_map(tolower) %>% tm_map(removeNumbers)
+
+##cleaning up: remove punctuation
+cleanCorpus <- cleanCorpus %>% tm_map(tolower) %>% tm_map(removeWords, stopwords()) %>% tm_map(removePunctuation)
+
+## cleaning up: remove strip white lines
+cleanCorpus <- cleanCorpus %>% tm_map(strip_White_space) 
+
+
+##inspect Corpus
+tibble(Raw = rawCorpus$content[1:3], Clean = cleanCorpus$content[1:3])
+
+##transform the news items into a matrix, This matrix still processes '', 's and -. I don't know how to filter this out
+cleanDTM <- cleanCorpus %>% DocumentTermMatrix
+inspect(cleanDTM)
+
+## Create split indices into train and test sets --> 75/25%
+set.seed(1234)
+trainIndex <- createDataPartition(rawDF$label, p = .75, 
+                                  list = FALSE, 
+                                  times = 1)
+head(trainIndex)
+
+##Make test + train dataset
+trainDF <- rawDF[trainIndex, ]
+
+testDF <- rawDF[-trainIndex, ]
+
+# Apply split indices to Corpus
+trainCorpus <- cleanCorpus[trainIndex]
+testCorpus <- cleanCorpus[-trainIndex]
+
+# Apply split indices to DTM
+trainDTM <- cleanDTM[trainIndex, ]
+testDTM <- cleanDTM[-trainIndex, ]
+
+##elimate words with low frequencies
+freqWords <- trainDTM %>% findFreqTerms(5) 
+trainDTM <-  DocumentTermMatrix(trainCorpus, list(dictionary = freqWords))
+testDTM <-  DocumentTermMatrix(testCorpus, list(dictionary = freqWords))
+
+##transform the counts into a factor that simply indicates whether the word appears in the document or not -> build function and apply it to each column
+convert_counts <- function(x) {
+  x <- ifelse(x > 0, 1, 0) %>% factor(levels = c(0,1), labels = c("No", "Yes"))
+}
+
+nColsDTM <- dim(trainDTM)[2]
+trainDTM <- apply(trainDTM, MARGIN = 2, convert_counts)
+testDTM <- apply(testDTM, MARGIN = 2, convert_counts)
+
+head(trainDTM[,1:10])
+```
+
+
+## Modeling & evaluation
+```{r}
+##it takes features and labels of the training dataset and returns a trained model.
+nbayesModel <-  naiveBayes(trainDTM, trainDF$label, laplace = 1)
+
+
+##generating a vector of predictions
+predVec <- predict(nbayesModel, testDTM)
+confusionMatrix(as.factor(predVec, testDF$label, positive = 1, dnn = c("Prediction", "True")))  
+```
+
