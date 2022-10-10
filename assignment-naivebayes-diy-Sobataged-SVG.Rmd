@@ -1,5 +1,5 @@
 ---
-title: "Assigment - Naive Bayes DIY"
+title: "Assigment - Naive Bayes DIY - made by Stan van Gaal"
 author:
   - name author here - Author
   - name reviewer here - Reviewer
