@@ -1,5 +1,5 @@
 ---
-title: "Assigment - kNN DIY"
+title: "Assigment - kNN DIY - Reviewed by Stan van Gaal, made by Luuk grandjean"
 author:
 - "Luuk Grandjean - Author"
 - "Stan van Gaal- Reviewer"
